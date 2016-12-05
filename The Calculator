@@ -1,0 +1,70 @@
+# REDOX Calculator V.1
+# By Matthew Fox---Exploits "On Balancing Acidic and Basic Reduction/Oxidation Reactions with a Calculator"
+# Publication Date: 08 June 2015 (World Journal of Chemical Education) 
+
+from REDOX_Calculator import *
+
+while True:
+    user = input("In what solution (acceptable input: H/OH/none)? " )
+    if user == 'H' or user == 'h':
+        break
+    elif user == 'OH' or user == 'oh':
+        break
+    elif user == 'none' or user == 'NONE':
+        break
+    else:
+        print('Choose a valid solution')
+while True:
+    matrix = input("Input coefficients from equation (separate numbers by a comma or space): ")
+    L = stringToList(matrix)
+    if commacount(L)[0] > 0 and commacount(L)[1] > 0:
+        print('Only separate coefficients by EITHER a space or a comma, not both')
+        print('')
+    else:
+        M = finalclean(L)
+        print(smatrix(M))
+        I = input("Verify that the above coefficient matrix is correct (dimensions may be skewed, simply check veracity of coefficients) (acceptable input: y/n): ")
+        if I == 'y' or I == 'Y':
+            break
+        else:
+            print('Former Input:', matrix)
+            print('')
+while True:
+    which = input("Is there H and/or O in the equation (acceptable input: both/H/O/none)? " )
+    if which == 'none' and user != 'none':
+        raise ValueError('You cannot balance a redox equation in H or OH conditions without either O or H already existing in the equation')
+    elif which == 'NONE' and user != 'NONE':
+        raise ValueError('You cannot balance a redox equation in H or OH conditions without either O or H already existing in the equation')
+    else:
+        break
+
+if user == 'H' or user == 'h':
+    if which == 'both' or which == 'BOTH':
+        print('')
+        print(solvem( acidoh(M) ))
+    elif which == 'O' or which == 'o':
+        print('')
+        print(solvem( acido(M) ))
+    else:
+        print('')
+        print(solvem( acidh(M) ))
+elif user == 'OH' or user =='oh':
+    if which == 'BOTH' or which == 'both':
+        print('')
+        print( solvem( baseoh(M) ) )
+    elif which == 'O' or which =='o':
+        print('')
+        print( solvem( baseo(M) ) )
+    else:
+        print('')
+        print( solvem( baseh(M) ) ) 
+else:
+    print('')
+    print( solve(M) )
+
+# 0,0,-1,2,0,1,-2,1,2,96,0,0,0,0,0,-1,1,24,4,-7,-2,-3,0,-1,0,7,0,-2,0,0,0,0,0,66,0,0,0,-1,0,0,0,42,0,0,-1,0,0,0,0,0,1,0,0,0,-1,0
+
+# 0,0,-1,0,2,-3,-1,2,0,0,0,0,0,-1,1,0,3,-1,-4,0,0,0,1,0,0,0,-1,0,0,1,0,0,-1,0,0,0,0,1,-1,0,0,0
+
+# C^+:
+#0,0,-1,0,2,-3,-1,2,0,0,0,0,0,-1,1,0,3,-1,-4,0,0,0,1,0,0,0,-1,0,0,1,0,0,-1,0,0,0,0,1,-1,0,0,0
