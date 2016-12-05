@@ -1,0 +1,443 @@
+import numpy as np
+from math import *
+import scipy as Q
+from scipy import linalg
+
+# All functions that follow are for square matrices, a later function will differentiate between them.
+
+def f1(P, n = 0):
+    """determines placement of negative value in list
+    """
+    if len(P) == 0:
+        return 0
+    elif P[0] > 0:
+        return n
+    else:
+        return f1(P[1:], n + 1)
+
+def nearest(n):
+    L = [4, 9, 16, 25, 36]
+    P = [L[x] - n for x in range(5)]
+    Q = f1(P)
+    return P[Q]
+
+def smatrix(A):
+    """ Does the same thing as smatrix below, but more efficiently (thus allowing for larger matrices)
+    """
+    if len(A) == 4:
+        return np.array([A[:2],A[2:]])
+    elif len(A) == 9 or len(A) == 6:
+        if len(A) == 6:
+            return np.array([A[:3], A[3:6], 3 * [0] ])
+        else:
+            return np.array([A[:3], A[3:6], A[6:]])
+    elif len(A) == 16 or len(A) == 12:
+        if len(A) == 12:
+            return np.array([A[:4], A[4:8], A[8:12], 4 * [0] ])
+        else:
+            return np.array([A[:4], A[4:8], A[8:12], A[12:]])
+    elif len(A) == 25 or len(A) == 20:
+        if len(A) == 20:
+            return np.array([A[:5], A[5:10], A[10:15], A[15:20], 5 * [0] ])
+        else:
+            return np.array([A[:5], A[5:10], A[10:15], A[15:20], A[20:] ])
+    elif len(A) == 36 or len(A) == 30:
+        if len(A) == 30:
+            return np.array([A[:6], A[6:12], A[12:18], A[18:24], A[24:30], 6*[0] ])
+        else:
+            return np.array([A[:6], A[6:12], A[12:18], A[18:24], A[24:30], A[30:]])
+    elif len(A) == 49 or len(A) == 42:
+        if len(A) == 42:
+            return np.array([ A[:7], A[7:14], A[14:21], A[21:28], A[28:35], A[35:42], 7*[0] ])
+        else:
+            return np.array([A[:7], A[7:14], A[14:21], A[21:28], A[28:35], A[35:42], A[42:] ])
+    elif len(A) == 64 or len(A) == 56:
+        if len(A) == 56:
+            return np.array([ A[:8], A[8:16], A[16:24], A[24:32], A[32:40], A[40:48], A[48:56], 8*[0] ])
+        else:
+            return np.array([ A[:8], A[8:16], A[16:24], A[24:32], A[32:40], A[40:48], A[48:56], A[56:] ])
+    elif len(A) == 81 or len(A) == 72:
+        if len(A) == 72:
+            return np.array([ A[:9], A[9:18], A[18:27], A[27:36], A[36:45], A[45:54], A[54:63], A[63:72], 9*[0] ])
+        else:
+            return np.array([ A[:9], A[9:18], A[18:27], A[27:36], A[36:45], A[45:54], A[54:63], A[63:72], A[72:] ])
+    elif len(A) == 100 or len(A) == 90:
+        if len(A) == 90:
+            return np.array([A[:10], A[10:20], A[20:30], A[30:40], A[40:50], A[50:60], A[60:70], A[70:80], A[80:90], 10*[0] ])
+        else:
+            return np.array([A[:10], A[10:20], A[20:30], A[30:40], A[40:50], A[50:60], A[60:70], A[70:80], A[80:90], A[90:] ])
+    elif len(A) > 36:
+        raise ValueError('dim of equation too large or does not meet constraint: m X n such that m <= n by a maximum difference of 1')
+    else:
+        V = nearest(len(A))
+        B = A + (V * [0])
+        return smatrix( B )
+
+# Necessary Functions (and preparations) for hydronium and hydroxide operators
+
+def stringToList(S):
+    """Takes in a string and returns a list
+    """
+    if S == '':
+        return []
+    else:
+        return [S[0]] + stringToList(S[1:])
+
+def commacount(L, c = 0, s = 0):
+    """ Counts number of commas and spaces in user's stoichiometric coefficient string input
+    """
+    if L == []:
+        return [c]+[s]
+    elif L[0] == ',':
+        return commacount(L[1:], c + 1, s)
+    elif L[0] == ' ':
+        return commacount(L[1:], c, s + 1)
+    else:
+        return commacount(L[1:], c, s)
+
+def commaclean(L):
+    """ Returns the necessary coefficient list to be sent to the hydronium or hydroxide function
+    """
+    if len(L) == 0:
+        return []
+    elif L[0] == ',':
+        return commaclean(L[1:])
+    elif len(L) == 1:
+        return [int(L[0])]
+    elif len(L) == 2:
+        if L[0] == '-':
+            return [(-1) * int(L[1])]
+        else: 
+            return [10*int(L[0])+int(L[1])]
+    elif L[1] == ',':
+        return [int(L[0])] + commaclean(L[2:])
+    elif L[2] == ',':
+        if L[0] == '-':
+            return [(-1) * int(L[1])] + commaclean(L[3:])
+        else: 
+            return [10*int(L[0])+int(L[1])] + commaclean(L[3:])
+    elif len(L) > 3:
+        if L[0] == '-':
+            if L[3] == ',':
+                return [(-1)*(10*int(L[1])+int(L[2]) )] + commaclean(L[4:])
+            else:
+                return [(-1)*(100*int(L[1])+10*int(L[2])+int(L[3]) )] + commaclean(L[4:])
+        else:
+            return [ 100*int(L[0])+10*int(L[1])+int(L[2]) ] + commaclean(L[4:])
+    elif len(L) == 3:
+        if L[0] == '-':
+            if L[3] == ',':
+                return [(-1)*(10*int(L[1])+int(L[2]) )]
+            else:
+                return [(-1)*(100*int(L[1])+10*int(L[2])+int(L[3]) )]
+        else:
+            return [ 100*int(L[0])+10*int(L[1])+int(L[2]) ]
+    else:
+        raise ValueError('coefficients too large---cannot balance')
+
+def spaceclean(L):
+    """ Does the same thing as commaclean, except for spaces within the user input
+    """
+    if len(L) == 0:
+        return []
+    elif L[0] == ' ':
+        return spaceclean(L[1:])
+    elif len(L) == 1:
+        return [int(L[0])]
+    elif len(L) == 2:
+        if L[0] == '-':
+            return [(-1) * int(L[1])]
+        else: 
+            return [10*int(L[0])+int(L[1])]
+    elif L[1] == ' ':
+        return [int(L[0])] + spaceclean(L[2:])
+    elif L[2] == ' ':
+        if L[0] == '-':
+            return [(-1) * int(L[1])] + spaceclean(L[3:])
+        else: 
+            return [10*int(L[0])+int(L[1])] + spaceclean(L[3:])
+    elif len(L) > 3:
+        if L[0] == '-':
+            if L[3] == ' ':
+                return [(-1)*(10*int(L[1])+int(L[2]) )] + spaceclean(L[4:])
+            else:
+                return [(-1)*(100*int(L[1])+10*int(L[2])+int(L[3]) )] + spaceclean(L[4:])
+        else:
+            return [ 100*int(L[0])+10*int(L[1])+int(L[2]) ] + spaceclean(L[4:])
+    elif len(L) == 3:
+        if L[0] == '-':
+            if L[3] == ' ':
+                return [(-1)*(10*int(L[1])+int(L[2]) )]
+            else:
+                return [(-1)*(100*int(L[1])+10*int(L[2])+int(L[3]) )]
+        else:
+            return [ 100*int(L[0])+10*int(L[1])+int(L[2]) ]
+    else:
+        raise ValueError('coefficients too large---cannot balance')
+
+def finalclean(L):
+    """ Based on the input L, finalclean determines if spaceclean or commaclean is necessary 
+    """
+    if ' ' in L:
+        return spaceclean(L)
+    else:
+        return commaclean(L)
+
+# Acid Operator (appending two column vectors to matrix---for hydronium)
+
+def acidoh(A):
+    """appends hydronium operator to a list that contains both H and O in the original equation
+    """
+    if len(A) == 12:
+        return np.array([ [0] + A[0:3] + [-1], [2] + A[3:6] + [-1], [1] + A[6:9] + [0], [0] + A[9:] + [0], [0] * 5 ])
+    elif len(A) == 20:
+        return np.array([ [0] + A[0:4] + [1], [2] + A[4:8] + [-1], [1] + A[8:12] + [-1], [0] + A[12:16] + [0], [0] + A[16:] + [0], [0] * 6  ])
+    elif len(A) == 30:
+        return np.array([ [0] + A[0:5] + [1], [2] + A[5:10] + [-1], [1] + A[10:15] + [-1], [0] + A[15:20] + [0], [0] + A[20:25] + [0], [0] + A[25:] + [0], [0] * 7  ])
+    elif len(A) == 42:
+        return np.array([ [0] + A[0:6] + [1], [2] + A[6:12] + [-1], [1] + A[12:18] + [-1], [0] + A[18:24] + [0], [0] + A[24:30] + [0], [0] + A[30:36] + [0], [0] + A[36:] + [0], [0] * 8  ])
+    elif len(A) == 56:
+        return np.array([ [0] + A[0:7] + [1], [2] + A[7:14] + [-1], [1] + A[14:21] + [-1], [0] + A[21:28] + [0], [0] + A[28:35] + [0], [0] + A[35:42] + [0], [0] + A[42:49] + [0], [0] + A[49:] + [0], [0] * 9  ])
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<n by a maximum difference of one")
+
+        
+def acido(A):
+    """appends the hydronium operator to a stoichiometrc list that contains oxygen, but not hydrogen. Therefore, this appends an additional hydrogen-based row vector to the coefficient matrix 
+    """ 
+    if len(A) == 12 or len(A) == 16:
+        if len(A) == 12:
+            return np.array([ [0]+A[0:3]+[-1], [2]+3*[0]+[-1], [1]+A[3:6]+[0],[0]+A[6:9]+[0],[0]+A[9:]+[0]  ])
+        else:
+            return np.array([ [0]+A[0:4]+[-1], [2]+4*[0]+[-1], [1]+A[4:8]+[0],[0]+A[8:12]+[0],[0]+A[12:]+[0], 6*[0]  ])
+    elif len(A) == 20 or len(A) == 25:
+        if len(A) == 20:
+            return np.array( [ [0]+A[0:4]+[-1], [2]+4*[0]+[-1], [1]+A[4:8]+[0],[0]+A[8:12]+[0],[0]+A[12:16]+[0], [0]+A[16:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:5]+[-1], [2]+5*[0]+[-1], [1]+A[5:10]+[0],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:]+[0], 7*[0]  ] )
+    elif len(A) == 30 or len(A) == 36:
+        if len(A) == 30:
+            return np.array( [ [0]+A[0:5]+[-1], [2]+5*[0]+[-1], [1]+A[5:10]+[0],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:25]+[0], [0]+A[25:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:6]+[-1], [2]+6*[0]+[-1], [1]+A[6:12]+[0],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:]+[0], 8*[0]  ] )
+    elif len(A) == 42 or len(A) == 49:
+        if len(A) == 42:
+            return np.array( [ [0]+A[0:6]+[-1], [2]+6*[0]+[-1], [1]+A[6:12]+[0],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:36]+[0], [0]+A[36:]+[0] ] )
+        else:
+            return np.array( [ [0]+A[0:7]+[-1], [2]+7*[0]+[-1], [1]+A[7:14]+[0],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:]+[0], 9*[0]   ] )
+    elif len(A) == 56 or len(A) == 64:
+        if len(A) == 56:
+            return np.array( [ [0]+A[0:7]+[-1], [2]+7*[0]+[-1], [1]+A[7:14]+[0],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:49]+[0], [0]+A[49:]+[0]   ] )
+        else:
+            return np.array( [ [0]+A[0:8]+[-1], [2]+8*[0]+[-1], [1]+A[8:16]+[0],[0]+A[16:24]+[0],[0]+A[24:32]+[0], [0]+A[32:40]+[0], [0]+A[40:48]+[0], [0]+A[48:56]+[0], [0]+A[56:]+[0], 10*[0]   ] )
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<=n by a maximum difference of one")
+
+def acidh(A):
+    """appends the hydronium operator to a stoichiometric list that contains hydrogen, but not oxygen. Like acido above, an additional oxygen-based row vector is appended to the coefficient matrix
+    """
+    if len(A) == 12 or len(A) == 16:
+        if len(A) == 12:
+            return np.array([ [0]+A[0:3]+[-1], [2]+A[3:6]+[-1], [1]+3*[0]+[0],[0]+A[6:9]+[0],[0]+A[9:]+[0]  ])
+        else:
+            return np.array([ [0]+A[0:4]+[-1], [2]+A[4:8]+[-1],[1]+4*[0]+[0],[0]+A[8:12]+[0],[0]+A[12:]+[0], 6*[0]  ])
+    elif len(A) == 20 or len(A) == 25:
+        if len(A) == 20:
+            return np.array( [ [0]+A[0:4]+[-1], [2]+A[4:8]+[-1],[1]+4*[0]+[0],[0]+A[8:12]+[0],[0]+A[12:16]+[0], [0]+A[16:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:5]+[-1], [2]+A[5:10]+[-1],[1]+5*[0]+[0],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:]+[0], 7*[0]  ] )
+    elif len(A) == 30 or len(A) == 36:
+        if len(A) == 30:
+            return np.array( [ [0]+A[0:5]+[-1], [2]+A[5:10]+[-1],[1]+5*[0]+[0],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:25]+[0], [0]+A[25:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:6]+[-1], [2]+A[6:12]+[-1],[1]+6*[0]+[0],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:]+[0], 8*[0]  ] )
+    elif len(A) == 42 or len(A) == 49:
+        if len(A) == 42:
+            return np.array( [ [0]+A[0:6]+[-1], [2]+A[6:12]+[-1],[1]+6*[0]+[0],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:36]+[0], [0]+A[36:]+[0] ] )
+        else:
+            return np.array( [ [0]+A[0:7]+[-1], [2]+A[7:14]+[-1],[1]+7*[0]+[0],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:]+[0], 9*[0]   ] )
+    elif len(A) == 56 or len(A) == 64:
+        if len(A) == 56:
+            return np.array( [ [0]+A[0:7]+[-1], [2]+A[7:14]+[-1],[1]+7*[0]+[0],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:49]+[0], [0]+A[49:]+[0]   ] )
+        else:
+            return np.array( [ [0]+A[0:8]+[-1], [2]+A[8:16]+[-1],[1]+8*[0]+[0],[0]+A[16:24]+[0],[0]+A[24:32]+[0], [0]+A[32:40]+[0], [0]+A[40:48]+[0], [0]+A[48:56]+[0], [0]+A[56:]+[0], 10*[0]   ] )
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<=n by a maximum difference of one")
+
+# Base Operator (appending two column vectors to matrix---for hydroxide)
+
+def baseoh(A):
+    """appends hydroxide operator to a list where that list already contains both H and O
+    """
+    if len(A) == 12:
+        return np.array([ [0] + A[0:3] + [1], [2] + A[3:6] + [-1], [1] + A[6:9] + [-1], [0] + A[9:] + [0], [0] * 5 ])
+    elif len(A) == 20:
+        return np.array([ [0] + A[0:4] + [1], [2] + A[4:8] + [-1], [1] + A[8:12] + [-1], [0] + A[12:16] + [0], [0] + A[16:] + [0], [0] * 6  ])
+    elif len(A) == 30:
+        return np.array([ [0] + A[0:5] + [1], [2] + A[5:10] + [-1], [1] + A[10:15] + [-1], [0] + A[15:20] + [0], [0] + A[20:25] + [0], [0] + A[25:] + [0], [0] * 7  ])
+    elif len(A) == 42:
+        return np.array([ [0] + A[0:6] + [1], [2] + A[6:12] + [-1], [1] + A[12:18] + [-1], [0] + A[18:24] + [0], [0] + A[24:30] + [0], [0] + A[30:36] + [0], [0] + A[36:] + [0], [0] * 8  ])
+    elif len(A) == 56:
+        return np.array([ [0] + A[0:7] + [1], [2] + A[7:14] + [-1], [1] + A[14:21] + [-1], [0] + A[21:28] + [0], [0] + A[28:35] + [0], [0] + A[35:42] + [0], [0] + A[42:49] + [0], [0] + A[49:] + [0], [0] * 9  ])
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<n by a maximum difference of one")
+
+def baseh(A):
+    """appends the hydroxide operator to a stoichiometric list where that list already contains H, but not O
+    """
+    if len(A) == 12 or len(A) == 16:
+        if len(A) == 12:
+            return np.array([ [0]+A[0:3]+[1], [2]+A[3:6]+[-1], [1]+3*[0]+[-1],[0]+A[6:9]+[0],[0]+A[9:]+[0]  ])
+        else:
+            return np.array([ [0]+A[0:4]+[1], [2]+A[4:8]+[-1],[1]+4*[0]+[-1],[0]+A[8:12]+[0],[0]+A[12:]+[0], 6*[0]  ])
+    elif len(A) == 20 or len(A) == 25:
+        if len(A) == 20:
+            return np.array( [ [0]+A[0:4]+[1], [2]+A[4:8]+[-1],[1]+4*[0]+[-1],[0]+A[8:12]+[0],[0]+A[12:16]+[0], [0]+A[16:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:5]+[1], [2]+A[5:10]+[-1],[1]+5*[0]+[-1],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:]+[0], 7*[0]  ] )
+    elif len(A) == 30 or len(A) == 36:
+        if len(A) == 30:
+            return np.array( [ [0]+A[0:5]+[1], [2]+A[5:10]+[-1],[1]+5*[0]+[-1],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:25]+[0], [0]+A[25:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:6]+[1], [2]+A[6:12]+[-1],[1]+6*[0]+[-1],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:]+[0], 8*[0]  ] )
+    elif len(A) == 42 or len(A) == 49:
+        if len(A) == 42:
+            return np.array( [ [0]+A[0:6]+[1], [2]+A[6:12]+[-1],[1]+6*[0]+[-1],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:36]+[0], [0]+A[36:]+[0] ] )
+        else:
+            return np.array( [ [0]+A[0:7]+[1], [2]+A[7:14]+[-1],[1]+7*[0]+[-1],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:]+[0], 9*[0]   ] )
+    elif len(A) == 56 or len(A) == 64:
+        if len(A) == 56:
+            return np.array( [ [0]+A[0:7]+[1], [2]+A[7:14]+[-1],[1]+7*[0]+[-1],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:49]+[0], [0]+A[49:]+[0]   ] )
+        else:
+            return np.array( [ [0]+A[0:8]+[1], [2]+A[8:16]+[-1],[1]+8*[0]+[-1],[0]+A[16:24]+[0],[0]+A[24:32]+[0], [0]+A[32:40]+[0], [0]+A[40:48]+[0], [0]+A[48:56]+[0], [0]+A[56:]+[0], 10*[0]   ] )
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<=n by a maximum difference of one")
+
+
+def baseo(A):
+    """appends the hydroxide operator to a stoichiometric list that already contains O but not H
+    """
+    if len(A) == 12 or len(A) == 16:
+        if len(A) == 12:
+            return np.array([ [0]+A[0:3]+[1], [2]+3*[0]+[-1], [1]+A[3:6]+[-1],[0]+A[6:9]+[0],[0]+A[9:]+[0]  ])
+        else:
+            return np.array([ [0]+A[0:4]+[1], [2]+4*[0]+[-1], [1]+A[4:8]+[-1],[0]+A[8:12]+[0],[0]+A[12:]+[0], 6*[0]  ])
+    elif len(A) == 20 or len(A) == 25:
+        if len(A) == 20:
+            return np.array( [ [0]+A[0:4]+[1], [2]+4*[0]+[-1], [1]+A[4:8]+[-1],[0]+A[8:12]+[0],[0]+A[12:16]+[0], [0]+A[16:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:5]+[1], [2]+5*[0]+[-1], [1]+A[5:10]+[-1],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:]+[0], 7*[0]  ] )
+    elif len(A) == 30 or len(A) == 36:
+        if len(A) == 30:
+            return np.array( [ [0]+A[0:5]+[1], [2]+5*[0]+[-1], [1]+A[5:10]+[-1],[0]+A[10:15]+[0],[0]+A[15:20]+[0], [0]+A[20:25]+[0], [0]+A[25:]+[0]  ] )
+        else:
+            return np.array( [ [0]+A[0:6]+[1], [2]+6*[0]+[-1], [1]+A[6:12]+[-1],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:]+[0], 8*[0]  ] )
+    elif len(A) == 42 or len(A) == 49:
+        if len(A) == 42:
+            return np.array( [ [0]+A[0:6]+[1], [2]+6*[0]+[-1], [1]+A[6:12]+[-1],[0]+A[12:18]+[0],[0]+A[18:24]+[0], [0]+A[24:30]+[0], [0]+A[30:36]+[0], [0]+A[36:]+[0] ] )
+        else:
+            return np.array( [ [0]+A[0:7]+[1], [2]+7*[0]+[-1], [1]+A[7:14]+[-1],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:]+[0], 9*[0]   ] )
+    elif len(A) == 56 or len(A) == 64:
+        if len(A) == 56:
+            return np.array( [ [0]+A[0:7]+[1], [2]+7*[0]+[-1], [1]+A[7:14]+[-1],[0]+A[14:21]+[0],[0]+A[21:28]+[0], [0]+A[28:35]+[0], [0]+A[35:42]+[0], [0]+A[42:49]+[0], [0]+A[49:]+[0]   ] )
+        else:
+            return np.array( [ [0]+A[0:8]+[1], [2]+8*[0]+[-1], [1]+A[8:16]+[-1],[0]+A[16:24]+[0],[0]+A[24:32]+[0], [0]+A[32:40]+[0], [0]+A[40:48]+[0], [0]+A[48:56]+[0], [0]+A[56:]+[0], 10*[0]   ] )
+    else:
+        raise ValueError("dim of equation not suitable for this calculator (dim must be of order m X n, where m<=n by a maximum difference of one")
+
+# Computing the null space (and, therefore, the solution vector)
+
+def null(A, eps = 1e-15):
+    u, s, vh = Q.linalg.svd(A)
+    null_mask = (s <= eps)
+    null_space = Q.compress(null_mask, vh, axis=0)
+    return Q.transpose(null_space)
+
+def solve(A):
+    """returns correct stoichiometric coefficients for list input
+    """
+    B = smatrix(A)
+    C = commonratio(arraytolist( null(B) ))
+    if sum(C) < 0:
+        return abslist(C)
+    else:
+        return C
+
+def solvem(A):
+    """returns correct stoichiometric coefficients for matrix input
+    """
+    C = commonratio(arraytolist( null(A) ))
+    if sum(C) < 0:
+        return abslist(C)
+    else:
+        return C
+
+# Absolute list-value and common-ratio functions
+
+def abslist(A):
+    """ Takes in a list of integers and converts each input to the magnitude of each element (removes negatives)
+    """
+    return [ abs(A[i]) for i in range(len(A)) ]
+
+def arraytolist(A):
+    """ Takes in a row or column vector array (composed solely of numerical elements) and returns a list of the same elements
+    """
+    if len(A) == 0:
+        return []
+    else:
+        try:
+            return [ A[0][0] ] + arraytolist(A[1:]) 
+        except:
+            return [ A[0] ] + arraytolist(A[1:])
+
+# -----------------------------------------------------------------------
+
+def ratiotest(A):
+    for i in range(len(A)):
+        if intaprox(A[i]) != int(A[i]):
+            return False
+    return True
+
+def commonratio(A):
+    """ Takes in a string and returns a corresponding list with whole, irreducible integers
+    """
+    A = [ intaprox( A[i] / min(abslist(A)) ) for i in range(len(A)) ]
+    n = 1
+    nlimit = 1000000
+    while ratiotest(A) == False:
+        if n == nlimit:
+            raise ValueError("Cannot simplify ratio.")
+        A = [ (A[i]/n) * (n+1) for i in range(len(A)) ]
+        n += 1
+    return [ int(A[i]) for i in range(len(A)) ]
+
+def intaprox(n):
+    epsilon = 1e-3
+    b = abs(n)
+    if n < 0:
+        if abs(int(b+1) - b) < epsilon:
+            return -1*int(b+1)
+        elif abs(int(b) - b) < epsilon:
+            return -1*int(b) 
+        else:
+            return n
+    else:
+        if abs(int(b+1) - b) < epsilon:
+            return int(b+1)
+        elif abs(int(b) - b) < epsilon:
+            return int(b) 
+        else:
+            return n
+
+
+
+# ------------------------------------------------------------------
+# Examples:
+
+# 0,0,-1,2,0,1,-2,1,2,96,0,0,0,0,0,-1,1,24,4,-7,-2,-3,0,-1,0,7,0,-2,0,0,0,0,0,66,0,0,0,-1,0,0,0,42,0,0,-1,0,0,0,0,0,1,0,0,0,-1,0
+
+# 1 0 -1 0 2 3 -3 -2 0 2 -2 0 0 1 0 -1
+
+
+# 1,0,0,0,0,-2,1,0,-2,0,0,0,3,11,0,-2,-1,-3,0,12,0,-1,0,-1,0,22,0,0,-2,0
+
